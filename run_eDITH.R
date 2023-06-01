@@ -1,19 +1,18 @@
 rm(list=ls())
+
 library(rivnet)
 library(OCNet)
-library(Rcpp)
 library(terra)
-library(BayesianTools)
-library(LaplacesDemon)
 library(readxl)
 library(fields)
-library(eDITH) # from github.com/lucarraro/eDITH
+library(eDITH) # install via devtools::install_github("lucarraro/eDITH")
 
-#sourceCpp("evalConc2.cpp")
-#source("run_eDITH_func.R")
+# PREPARE MODEL ####
 
+# create results folder
 if (!dir.exists("results")) dir.create("results")
 
+# load catchment data
 if (!file.exists("data/Thur.rda")){
   Thur <- rivnet::extract_river(outlet = c(735010, 261530),
                                 EPSG = 21781,
@@ -37,9 +36,7 @@ if (!file.exists("data/Thur.rda")){
   hyData <- data.frame(type=c(rep("w",4),rep("d",3),rep("Q",4)),
                        data=c(hydroData$w, hydroData$d[!is.na(hydroData$d)], hydroData$Q),
                        node=c(siteAG, siteAG[!is.na(hydroData$d)], siteAG))
-  Thur <- hydro_river(hyData, Thur)
-
-  #r1 <- terra::rast("data/landcover.asc")
+  Thur <- rivnet::hydro_river(hyData, Thur)
 
   landCovCH <- read.csv("C:/Users/carrarlu/Documents/ag-b-00.03-37-area-csv.csv", sep = ";") # add this .csv file to the source folder
   landCovCH <- terra::rast(data.frame(landCovCH$E, landCovCH$N, landCovCH$LU18_4),
@@ -72,7 +69,7 @@ if (!file.exists("data/Thur.rda")){
   save(Thur,file="Thur.rda",compress="xz")
 } else {load("data/Thur.rda")}
 
-# geographical covariates
+# evaluate geographical covariates
 siteClusters <- read_excel("data/siteClusters.xlsx")
 geo_cluster <- numeric(Thur$AG$nNodes)
 geoCov <- data.frame(matrix(0,Thur$AG$nNodes,dim(siteClusters)[1]))
@@ -90,11 +87,11 @@ covariates <- cbind(data.frame(logDrainageArea=log(Thur$AG$A), # streamOrder=Thu
                     Thur$SC$upsCov[c("alluvial","alpine","molasses","moraines","peat")], #"water", "loess", "scree"
                     geoCov)
 
-# sampling sites
+# assign sampling sites coordinates
 samplingSites <- read_excel("data/Coordinates_new.xlsx")
 X <- samplingSites$X_new; Y <- samplingSites$Y_new
 sampSiteAG <- length(X)
-X[4] <- 726000;
+X[4] <- 726000; # adjust coordinates to better reflect topology of extracted river
 X[7] <- 723700; Y[7] <- 254100
 X[10] <- 733350
 Y[15] <- 256300
@@ -102,7 +99,7 @@ X[21] <- 728400; Y[21] <- 251900
 X[27] <- 737700; Y[27] <- 247200
 X[39] <- 731300
 Y[43] <- 239100
-for (i in 1:length(X)){
+for (i in 1:length(X)){ # uncomment lines and set showPlot = T to check site-by-site if assignation to reach is OK
   tmp <- locate_site(X[i], Y[i], Thur,showPlot=F)
   #title(sprintf("Site %d  -  X %d  -  Y %d",samplingSites$SiteID[i], X[i], Y[i]))
   sampSiteAG[i] <- tmp$AGnode
@@ -111,6 +108,7 @@ for (i in 1:length(X)){
 X_site <- X; Y_site <- Y;
 site_key <- sort(samplingSites$SiteName, index.return=T); site_key <- site_key$ix
 
+# load eDNA data
 allData_nP <- read.csv("data/MZBTaxa_summed_notPooled.csv") # not pooled
 familyNames <- as.vector(allData_nP["Family"]); familyNames <- familyNames$Family
 allData_nP <- allData_nP[ ,-1]
@@ -121,23 +119,33 @@ rn <- row.names(allData_nP); rn[rn=="H27.3"] <- "L27.3" # correct mislabeled run
 row.names(allData_nP) <- rn
 
 
-kols <- hcl.colors(1000,rev=T)
+kols <- hcl.colors(1000,rev=T) # define colormap
 
-
+# RUN MODEL FOR ALL FAMILIES ####
 for (ff in familyNames){
   cat(sprintf('%d) %s  -  %s \n',which(familyNames==ff),ff,date()))
   if(!file.exists(paste0("results/",ff,".rda"))){
     out <- NULL
-    eval(parse(text=paste0('save(out, file="results/',ff,'.rda")')))
+    eval(parse(text=paste0('save(out, file="results/',ff,'.rda")'))) # if results file doesn't exist, create a temporary one
 
     data <- data.frame(ID=sampSiteAG[match(substr(row.names(allData_nP),1,3), samplingSites$RB_Site_code)],
                        values=allData_nP[[ff]]) # NON-POOLED DATA
 
-    out <- run_eDITH_BT(data, Thur, covariates, no.det=FALSE, ll.type = "nbinom",
-                        mcmc.settings = list(iterations = 2.7e4, burnin=1.8e4, message = TRUE, thin = 10)) # short version
-    out[["taxon"]] <- ff
-    out <- eDITH::eval_posterior_eDITH(out, Thur, covariates)
+    # run eDITH via BayesianTools
+    out <- eDITH::run_eDITH_BT(data, Thur, covariates, no.det=FALSE, ll.type = "nbinom",
+                        mcmc.settings = list(iterations = 2.7e4, burnin=1.8e4, message = TRUE, thin = 10)) # short version!
+    # N.B.: this is a toy version, with reduced MCMC length, just to check that the functions are working.
+    # to run real simulations, use default "mcmc.settings"
 
+    out[["taxon"]] <- ff
+
+    # evaluate median & mean of the posterior p, C and probDet
+    out <- eDITH::eval_posterior_eDITH(out, Thur)
+
+    # perform posterior predictive simulations (you don't need to run eval_posterior_eDITH before running this)
+    pps <- eDITH::posterior_pred_sim_eDITH(out, Thur)
+
+    # plot results (map of median detection probability vs. read numbers)
     pdf(paste0("results/",ff,"_map.pdf"),width=20/2.54,height=20/2.54)
     plot(out$probDetection_median, Thur, colLevels=c(0,1)); title(ff)
     for(i in 1:length(unique(data$ID))){
@@ -152,12 +160,14 @@ for (ff in familyNames){
               horizontal=T, legend.lab="No. pooled reads (log10)")
     dev.off()
 
+    # plot log-posterior trace plot (to check for convergence and influence of burn-in)
     pdf(paste0("results/",ff,"_LP.pdf"),width=18/2.54,height=12/2.54)
     plot(out$outMCMC$chain[[1]][-1,"LP"],type="l",ylab="Log-posterior"); title(ff)
     lines(out$outMCMC$chain[[2]][-1,"LP"],col="red",type="l")
     lines(out$outMCMC$chain[[3]][-1,"LP"],col="blue",type="l")
     dev.off()
 
+    # save results
     eval(parse(text=paste0('save(out, file="results/',ff,'.rda", compress="xz")')))
 
     rm(ff)
@@ -166,12 +176,6 @@ for (ff in familyNames){
 }
 
 
-# for (i in 1:dim(covariates)[2]){
-#   nam <- names(covariates)[i]
-#   fnam <- paste0("covariate_plot/",nam,".pdf")
-#    pdf(file=fnam,width=20/2.54,height=20/2.54)
-#    plot(Thur,covariates[,i]); title(nam)
-#    dev.off()
-# }
+
 
 
