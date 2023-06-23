@@ -49,5 +49,7 @@ covariates <- data.frame(urban=river$SC$locCov$landcover_1,
 
 out <- eDITH::run_eDITH_BT(dd, river, covariates)
 
+out3 <- eDITH::run_eDITH_optim(dd, river, covariates) # doesn't work!
+
 out2 <- eDITH::run_eDITH_BT(dd, river) # works but doesn't converge
 
