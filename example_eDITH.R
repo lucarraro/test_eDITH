@@ -47,9 +47,16 @@ covariates <- data.frame(urban=river$SC$locCov$landcover_1,
                          elev=river$AG$Z,
                          log_drainageArea=log(river$AG$A))
 
-out <- eDITH::run_eDITH_BT(dd, river, covariates)
+if (!file.exists("out_BT.rda")){
+out_BT <- eDITH::run_eDITH_BT(dd, river, covariates)
+save(out_BT, file="out_BT.rda")
+} else {load("out_BT.rda")}
 
-out3 <- eDITH::run_eDITH_optim(dd, river, covariates) # doesn't work!
+out3 <- eDITH::run_eDITH_optim(dd, river, covariates)
+save(out3, file="out_optim.rda")
+
+out4 <- eDITH::run_eDITH_optim(dd, river)
+save(out4, file="out_optim_noCov.rda")
 
 out2 <- eDITH::run_eDITH_BT(dd, river) # works but doesn't converge
 
