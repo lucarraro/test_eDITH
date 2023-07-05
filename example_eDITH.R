@@ -21,6 +21,9 @@ ss <- sort(river$AG$A, index.return=T); ss <- ss$ix
 samplingSites <- c(2,15,30,78,97,117,132,106,138,153,156,159,263,176,
   215,189,11,70,79,87,45,209,26,213) # don't touch!
 
+#try with more sites
+#samplingSites <- 1:river$AG$nNodes
+
 tau <- 3*3600
 log_p0 <- -16
 
@@ -38,6 +41,7 @@ C <- eDITH:::evalConc2_cpp(river, ss, river$AG$leng*river$AG$width, tau, p, "AG"
 
 set.seed(1)
 C_obs <- rnorm(length(samplingSites), C[samplingSites], 1e-13)
+C_obs[C_obs<0] <- 0
 
 dd <- data.frame(ID=samplingSites, values=C_obs)
 
@@ -52,11 +56,10 @@ out_BT <- eDITH::run_eDITH_BT(dd, river, covariates)
 save(out_BT, file="out_BT.rda")
 } else {load("out_BT.rda")}
 
+out_BT <- eDITH::run_eDITH_BT(dd, river, covariates)
 out3 <- eDITH::run_eDITH_optim(dd, river, covariates)
-save(out3, file="out_optim.rda")
+#save(out3, file="out_optim.rda")
 
-out4 <- eDITH::run_eDITH_optim(dd, river)
-save(out4, file="out_optim_noCov.rda")
 
-out2 <- eDITH::run_eDITH_BT(dd, river) # works but doesn't converge
+
 
