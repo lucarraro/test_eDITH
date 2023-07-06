@@ -60,6 +60,8 @@ out_BT <- eDITH::run_eDITH_BT(dd, river, covariates)
 out3 <- eDITH::run_eDITH_optim(dd, river, covariates)
 #save(out3, file="out_optim.rda")
 
+res <- OCNet::OCN_to_AEM(river, weight="gravity")
 
-
-
+covariates.aem <- data.frame(res$vectors[, 1:round(0.1*river$AG$nNodes)])
+out5 <- eDITH::run_eDITH_optim(dd, river, covariates.aem)
+out_BT.aem <- eDITH::run_eDITH_BT(dd, river, covariates.aem)
