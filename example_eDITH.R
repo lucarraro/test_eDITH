@@ -56,17 +56,13 @@ out_BT <- eDITH::run_eDITH_BT(dd, river, covariates)
 save(out_BT, file="out_BT.rda")
 } else {load("out_BT.rda")}
 
-out_BT <- eDITH::run_eDITH_BT(dd, river, covariates)
-out3 <- eDITH::run_eDITH_optim(dd, river, covariates)
-#save(out3, file="out_optim.rda")
+## alternative functions and options
+out3 <- eDITH::run_eDITH_optim(dd, river, covariates) # this function finds a single best-fit parameter set
 
+# use AEMs as covariates
 out4 <- eDITH::run_eDITH_optim(dd, river)
 out5 <- eDITH::run_eDITH_BT(dd, river)
 
+# append the first 6 AEMs to the provided covariates
 out6 <- eDITH::run_eDITH_BT(dd, river, covariates, use.AEM=TRUE, n.AEM=6)
 
-res <- OCNet::OCN_to_AEM(river, weight="gravity")
-
-covariates.aem <- data.frame(res$vectors[, 1:round(0.1*river$AG$nNodes)])
-out5 <- eDITH::run_eDITH_optim(dd, river, covariates.aem)
-out_BT.aem <- eDITH::run_eDITH_BT(dd, river, covariates.aem)
