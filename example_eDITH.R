@@ -40,10 +40,16 @@ p <- eDITH:::eval.p(param, covariates)
 C <- eDITH:::evalConc2_cpp(river, ss, river$AG$leng*river$AG$width, tau, p, "AG")
 
 set.seed(1)
-C_obs <- rnorm(length(samplingSites), C[samplingSites], 1e-13)
-C_obs[C_obs<0] <- 0
+C_obs <- rnorm(3*length(samplingSites), rep(C[samplingSites],3), 3e-13)
+C_obs[C_obs<8e-13] <- 0
 
-dd <- data.frame(ID=samplingSites, values=C_obs)
+Read_obs <- rgeom(3*length(samplingSites), prob=rep(1/(1+1e11*C[samplingSites]), 3))
+omega <- 20
+Read_obs <- rnbinom(3*length(samplingSites),
+                    size = rep(1e13*C[samplingSites]/(omega-1),3), prob = 1/omega)
+
+dd <- data.frame(ID=rep(samplingSites,3), values=C_obs)
+dd.read <- data.frame(ID=rep(samplingSites,3), values=Read_obs)
 
 covariates <- data.frame(urban=river$SC$locCov$landcover_1,
                          agriculture=river$SC$locCov$landcover_2,
@@ -56,6 +62,15 @@ out_BT <- eDITH::run_eDITH_BT(dd, river, covariates)
 save(out_BT, file="out_BT.rda")
 } else {load("out_BT.rda")}
 
+out2 <- eDITH::run_eDITH_BT(dd, river, covariates, no.det=TRUE)
+
+out.read <- eDITH::run_eDITH_BT(dd.read, river, covariates, ll.type="nbinom")
+out.geom <- eDITH::run_eDITH_BT(dd.read, river, covariates, ll.type="geom")
+out.geom.noDet <- eDITH::run_eDITH_BT(dd.read, river, covariates, ll.type="geom", no.det=T)
+
+out.geom.short <- eDITH::run_eDITH_BT(dd.read, river, covariates, ll.type="geom",
+                                      mcmc.settings = list(iterations = 3e3, message = T, thin = 10))
+
 ## alternative functions and options
 out3 <- eDITH::run_eDITH_optim(dd, river, covariates) # this function finds a single best-fit parameter set
 
@@ -66,3 +81,13 @@ out5 <- eDITH::run_eDITH_BT(dd, river)
 # append the first 6 AEMs to the provided covariates
 out6 <- eDITH::run_eDITH_BT(dd, river, covariates, use.AEM=TRUE, n.AEM=6)
 
+# produce posterior sample to be used as new prior
+set.seed(1)
+outSample <- eDITH::run_eDITH_BT(dd, river, covariates,
+                              mcmc.settings=list(iterations=9e5, burnin = 6e5, message = TRUE, thin = 30))
+save(outSample, file="outSample.rda", compress="xz")
+
+pp <- createPriorDensity(outSample$outMCMC)
+names(pp$lower) <- names(pp$upper) <- colnames(outSample$outMCMC$chain[[1]])[1:8]
+# the three last columns are for log-posterior, log-likelihood, log-prior
+out.new <- run_eDITH_BT(dd, river, covariates, prior=pp)
