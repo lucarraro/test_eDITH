@@ -1,7 +1,7 @@
 # Illustrating the eDITH package with two case studies
 
 This document exemplifies with case studies the application of the `eDITH` R package contained in 
-"eDITH: leveraging environmental DNA to spatially project biodiversity and ecological indices across river networks" 
+"eDITH: an R-package to spatially project eDNA-based biodiversity across river networks with minimal prior information" 
 by Luca Carraro and Florian Altermatt, submitted to *Methods in Ecology and Evolution*.
 
 ## Content
