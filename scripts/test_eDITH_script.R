@@ -2,7 +2,7 @@
 
 # Illustrating the eDITH package with two case studies
 
-# Script accompanying the manuscript "eDITH: leveraging environmental DNA to 
+# Script accompanying the manuscript "eDITH: leveraging environmental DNA to
 #   spatially project biodiversity and ecological indices across river networks"
 #   Carraro & Altermatt, 2024
 
@@ -187,7 +187,8 @@ for (i in 1:length(riverData$river)) {
   plot(rowSums(probDet[[i]]>0.5), river, addLegend=F, max_lwd=3, colLevels=c(0,25))
   terra::sbar(d = 1000,
               xy = c(min(river$FD$X)+0.05*(max(river$FD$X)-min(river$FD$X)),
-                     min(river$FD$Y)+0.7*(max(river$FD$Y)-min(river$FD$Y))))
+                     min(river$FD$Y)+0.7*(max(river$FD$Y)-min(river$FD$Y))),
+              label = "1 km")
   terra::north(d = north_length[i],
                xy = c(min(river$FD$X)+0.05*(max(river$FD$X)-min(river$FD$X)),
                       min(river$FD$Y)+0.9*(max(river$FD$Y)-min(river$FD$Y))))
