@@ -509,7 +509,8 @@ for (i in 1:length(riverData$river)) {
        colLevels=c(0,25))
   terra::sbar(d = 1000,
               xy = c(min(river$FD$X)+0.05*(max(river$FD$X)-min(river$FD$X)),
-                     min(river$FD$Y)+0.7*(max(river$FD$Y)-min(river$FD$Y))))
+                     min(river$FD$Y)+0.7*(max(river$FD$Y)-min(river$FD$Y))),
+              label = "1 km")
   terra::north(d = north_length[i],
                xy = c(min(river$FD$X)+0.05*(max(river$FD$X)-min(river$FD$X)),
                       min(river$FD$Y)+0.9*(max(river$FD$Y)-min(river$FD$Y))))
