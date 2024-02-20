@@ -85,15 +85,15 @@ Specifically, we will only retain the first 10 AEM covariates (sorted in decreas
 n_covariates <- 10 # number of covariates used in eDITH
 thr_species <- 5   # exclude species with < thr_species detections from modelling
 
-probDet <- signifCovariates <- vector("list",2)
-gelmanDiag <- SST <- speciesID <- vector("list",2)
-names(probDet) <- names(signifCovariates) <- riverData$river
-names(gelmanDiag) <- names(SST) <- names(speciesID) <- riverData$river
+probDet_median <- probDet_025 <- probDet_975 <- vector("list",2)
+signifCovariates <- gelmanDiag <- SST <- speciesID <- vector("list",2)
+names(probDet_median) <- names(probDet_025) <- names(probDet_975) <- riverData$river
+names(signifCovariates) <- names(gelmanDiag) <- names(SST) <- names(speciesID) <- riverData$river
 ```
 
 All the following are lists with two objects named `Sydenham` and `Koide`.
 
-- `probDet`:  modelled detection probabilities for all species.
+- `probDet_median`, `probDet_025`, `probDet_975`:  modelled detection probabilities (median, 0.025- and 0.975-quantiles, respectively) for all species.
 - `signifCovariates`: information on which covariates are significant for which species.
 - `gelmanDiag`: values of the Gelman's diagnostic (provided by `BayesianTools`).
 - `SST`: species-by-site tables as provided by [@balasingham2018] and [@sakata2021]
@@ -235,9 +235,12 @@ We now initialize the export variables for the Sydenham river.
 
 ```{r}
 # initialize variables for export
-probDet$Sydenham <- data.frame(matrix(0, Sydenham$AG$nNodes, 
+probDet_median$Sydenham <- data.frame(matrix(0, Sydenham$AG$nNodes, 
                                       length(speciesID$Sydenham)))
-names(probDet$Sydenham) <- SST$Sydenham[speciesID[[1]],1]
+probDet_025$Sydenham <- probDet_975$Sydenham <-probDet_median$Sydenham 
+names(probDet_median$Sydenham) <- SST$Sydenham[speciesID[[1]],1]
+names(probDet_025$Sydenham) <- SST$Sydenham[speciesID[[1]],1]
+names(probDet_975$Sydenham) <- SST$Sydenham[speciesID[[1]],1]
 
 signifCovariates$Sydenham <- data.frame(matrix(0,n_covariates, 
                                                length(speciesID$Sydenham)))
@@ -354,9 +357,11 @@ for (iS in 1:length(speciesID$Sydenham)){ # loop over species
   
   } else {load(fnam)} # if results already generated, load them
   
-  # store posterior median detection probability, 
+  # store posterior detection probability (median, 0.025- and 0.975-quantiles), 
   #   Gelman diagnostics and significance of covariates
-  probDet$Sydenham[,iS] <- out$probDetection_quantile[2,]
+  probDet_median$Sydenham[,iS] <- out$probDetection_quantile[2,]
+  probDet_025$Sydenham[,iS] <- out$probDetection_quantile[1,]
+  probDet_975$Sydenham[,iS] <- out$probDetection_quantile[3,]
   gelmanDiag$Sydenham[,iS] <- out$gD$psrf[,1]
   for (j in 1:length(out$covariates)){
     if (out$cI[1,j+2]>0) signifCovariates$Sydenham[j,iS] <- 1
@@ -429,9 +434,12 @@ Read counts are contained in `siteSpeciesTableKoide.csv`. The following are the 
 
 ```{r}
   # initialize variables for export
-  probDet$Koide <- data.frame(matrix(0,Koide$AG$nNodes, 
+  probDet_median$Koide <- data.frame(matrix(0,Koide$AG$nNodes, 
                                      length(speciesID$Koide)))
-  names(probDet$Koide) <- SST$Koide[speciesID$Koide,1]
+  probDet_025$Koide <- probDet_975$Koide <- probDet_median$Koide
+  names(probDet_median$Koide) <- SST$Koide[speciesID$Koide,1]
+  names(probDet_025$Koide) <- SST$Koide[speciesID$Koide,1]
+  names(probDet_975$Koide) <- SST$Koide[speciesID$Koide,1]
 
   signifCovariates$Koide <- data.frame(matrix(0,n_covariates,
                                               length(speciesID$Koide)))
@@ -471,7 +479,9 @@ for (iS in 1:length(speciesID$Koide)){ # loop over species
   
   # store posterior median detection probability, 
   #    Gelman diagnostics and significance of covariates
-  probDet$Koide[,iS] <- out$probDetection_quantile[2,]
+  probDet_median$Koide[,iS] <- out$probDetection_quantile[2,]
+  probDet_025$Koide[,iS] <- out$probDetection_quantile[1,]
+  probDet_975$Koide[,iS] <- out$probDetection_quantile[3,]
   gelmanDiag$Koide[,iS] <- out$gD$psrf[,1]
   for (j in 1:length(out$covariates)){
     if (out$cI[1,j+2]>0) signifCovariates$Koide[j,iS] <- 1
@@ -483,7 +493,7 @@ for (iS in 1:length(speciesID$Koide)){ # loop over species
 
 # Displaying species richness 
 
-Finally, species richness predicted by eDITH can be computed by stacking up presence/absence predictions for all species contained in the datasets; in turn, these are derived by using a threhsold of 0.5 on the posterior median detection probability. We visually compare the predicted species richness with the observed one at the sampling sites, which we show as colored points in the river map. We also display the modelled detection probability for one characteristic species for each case study, together with the respective observed read counts. This figure corresponds to Fig. 4 shown in the manuscript. 
+Species richness predicted by eDITH can be computed by stacking up presence/absence predictions for all species contained in the datasets; in turn, these are derived by using a threhsold of 0.5 on the posterior median detection probability. We visually compare the predicted species richness with the observed one at the sampling sites, which we show as colored points in the river map. We also display the modelled detection probability for one characteristic species for each case study, together with the respective observed read counts. This figure corresponds to Fig. 4 shown in the manuscript. 
 
 ```{r, fig.width=12, fig.height=12}
 sp_name <- c("Cottus bairdii","Eleotris oxycephala") 
@@ -494,7 +504,7 @@ for (i in 1:length(riverData$river)) {
   ID <- riverData$river[i]
   eval(parse(text=paste0('river <- ',ID)))
   eval(parse(text=paste0('samplingSites <- samplingSites',ID)))
-  plot(probDet[[i]][[sp_name[i]]],  river,
+  plot(probDet_median[[i]][[sp_name[i]]],  river,
        colPalette=hcl.colors(1000, "Reds 3", rev=T), colLevels = c(0,1),
        args_imagePlot=list(legend.lab="Posterior median detection probability"))
   values <- SST[[i]][which(SST[[i]][,1]==sp_name[i]),-1]
@@ -505,7 +515,7 @@ for (i in 1:length(riverData$river)) {
                     horizontal=T, legend.lab = "Observed read counts (log 10)")
   title(sp_name[i])
 
-  plot(rowSums(probDet[[i]]>0.5), river, addLegend=F, max_lwd=3, 
+  plot(rowSums(probDet_median[[i]]>0.5), river, addLegend=F, max_lwd=3, 
        colLevels=c(0,25))
   terra::sbar(d = 1000,
               xy = c(min(river$FD$X)+0.05*(max(river$FD$X)-min(river$FD$X)),
@@ -523,6 +533,22 @@ for (i in 1:length(riverData$river)) {
 
 Note the use of `sbar` and `north` from the `terra` package in order to display the scale bar and north arrow, respectively. For both functions, argument `xy` is mandatory (see also documentation of `rivnet`'s `plot`). We here specify `xy` as a function of the range of the river's coordinates.
 
+# Displaying uncertainty in detection probability
+
+Finally, we can use output from `eval_posterior_eDITH` to assess the uncertainty in the estimates of detection probabilities. By default, `eval_posterior_eDITH` evaluates the equal-tailed 95% interval of the posterior distributions, which we previously stored in `probDet_025` and `probDet_975`. Here follows an example for *Cottus bairdii* in the Sydenham river. 
+
+
+```{r, fig.width=12, fig.height=5}
+par(mfrow=c(1,2))
+plot(probDet_025[[1]][[sp_name[1]]],  Sydenham,
+      colPalette=hcl.colors(1000, "Reds 3", rev=T), colLevels = c(0,1),
+      addLegend = FALSE)
+title("0.025-quantile")
+plot(probDet_975[[1]][[sp_name[1]]],  Sydenham,
+     colPalette=hcl.colors(1000, "Reds 3", rev=T), colLevels = c(0,1),
+     args_imagePlot=list(legend.lab="C. bairdii - Posterior detection probability"))
+title("0.975-quantile")
+```
 
 # References
 
